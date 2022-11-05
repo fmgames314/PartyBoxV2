@@ -1,70 +1,153 @@
+
 #!/usr/bin/env python
+
+# this is what was used before to run script before options --> #run with sudo python3 main.py --led-rows=32 --led-cols=32 --led-chain=6 --led-slowdown-gpio=4 --led-pixel-mapper "Rotate:180"
+# 
+# 
 
 #rgb matrix library
 from samplebase import SampleBase
-from rgbmatrix import graphics
-#graphics
-from PIL import Image
-from PIL import ImageDraw
-from PIL import ImageFont
-from pilmoji import Pilmoji
+from rgbmatrix import graphics, RGBMatrix, RGBMatrixOptions
+#async
+import websockets
+import asyncio
+from asyncio import gather, run, Event
+import subprocess
+import socket
 #generic
+import json
+import sys
+import os
+import re
 import time
+#import other files in same directory
+import socketEvents as SE
+import panelEffects as PE
+
+# Configuration for the matrix
+options = RGBMatrixOptions()
+options.rows = 32
+options.chain_length = 6
+options.pixel_mapper_config = "Rotate:180"
+options.gpio_slowdown = 4
+
+#state variable this is passed around to all of the async tasks to allow everything to access everything
+state = {}
+state["SE"] = SE   
+state["PE"] = PE  
+#user changable options
+state["panelCenter"] = state["PE"].panelOption(32,128)
+state["panelLeft"] = state["PE"].panelOption(0,32)
+state["panelRight"] = state["PE"].panelOption(160,32)
+
+#make the matrix obj
+state["matrix"] = RGBMatrix(options = options)
 
 
-def insert_newlines(string, every=64):
-    return '\n'.join(string[i:i+every] for i in range(0, len(string), every))
 
-def stringWithEmojiToImage(inputStr,width,height,backgroundColor,textColor,fontSize):
-    inputStr = insert_newlines(inputStr,max(1,round(width/fontSize)) ) 
-    with Image.new('RGB', (width, height), backgroundColor) as image:
-        font = ImageFont.truetype('./fonts/ARIALN.TTF', fontSize)
-        with Pilmoji(image) as pilmoji:
-            pilmoji.text((0, 0), inputStr.strip(), textColor, font)
-            return image.convert('RGB')
+
+state["panelCenter"].option_blackBackground = 1
+state["panelCenter"].option_regularText = 1
+state["panelCenter"].regularText_setFont(2) #0,1,2
+state["panelCenter"].regularText_setColor(30,255,255)
+state["panelCenter"].regularText_setScroll(1)
+state["panelCenter"].regularText_setScrollSpeed(.5)
+state["panelCenter"].regularText_setText("Test")
+
+state["panelLeft"].option_blackBackground = 1
+state["panelLeft"].option_emotexti = 1
+state["panelLeft"].emotexti_setText("🎄")
+
+state["panelRight"].option_blackBackground = 1
+state["panelRight"].option_emotexti = 1
+state["panelRight"].emotexti_setText("🎃")
+
+
+state["panelRight"].option_regularText = 1
+state["panelRight"].regularText_setScroll(0)
+state["panelRight"].regularText_setText("potato")
+
             
 
-class GraphicsTest(SampleBase):
-    def __init__(self, *args, **kwargs):
-        super(GraphicsTest, self).__init__(*args, **kwargs)
-
-    def run(self):
-        canvas = self.matrix
-        fontNormal = graphics.Font()
-        fontNormal.LoadFont("./fonts/7x13.bdf")
-        fontLarge = graphics.Font()
-        fontLarge.LoadFont("./fonts/10x20.bdf")        
-        fontSmall = graphics.Font()    
-        fontSmall.LoadFont("./fonts/5x7.bdf")       
-
-        print(canvas)
-
-        red = graphics.Color(255, 0, 0)
-        # graphics.DrawLine(canvas, 5, 5, 22, 13, red)
-
-        green = graphics.Color(0, 255, 0)
-        # graphics.DrawCircle(canvas, 15, 15, 10, green)
-
-        blue = graphics.Color(0, 0, 255)
-        graphics.DrawText(canvas, fontNormal, 64, 10, blue, "Hello")
-        graphics.DrawText(canvas, fontSmall, 32, 10, green, "Hello")
-        graphics.DrawText(canvas, fontLarge, 115, 10, blue, "Hello")
-
-        img = stringWithEmojiToImage("🎄",32,32,(0, 0, 0),(255, 255, 255),32)
-        canvas.SetImage(img,0,0)
-
-        img = stringWithEmojiToImage("🎃",32,32,(0, 0, 0),(255, 255, 255),32)
-        canvas.SetImage(img,160,0)        
-
-        time.sleep(10)
-        canvas.Clear()
+async def handleLedMatrix(state):
+    double_buffer = state["matrix"].CreateFrameCanvas()
+    while True:
+        double_buffer.Clear()
+        state["panelCenter"].draw(double_buffer)
+        state["panelLeft"].draw(double_buffer)
+        state["panelRight"].draw(double_buffer)
+        await asyncio.sleep(0.01) #this defines the refresh rate of the panels
+        double_buffer = state["matrix"].SwapOnVSync(double_buffer)
+        # state["matrix"].Clear()
 
 
 
-# Main function
-if __name__ == "__main__":
-    graphics_test = GraphicsTest()
-    if (not graphics_test.process()):
-        graphics_test.print_help()
+async def consumer_handler(websocket,state):
+    async for message in websocket:
+        try:
+            packet = json.loads(message)
+            # print(packet)
+            try:
+                await SE.process_websocket_event(websocket,packet,packet["event"],state)
+            except Exception as e:
+                print("bad websocket packet, probably no event name: "+str(e))
+        except Exception as e:
+            print("failed to packet.loads: " + str(e))
+            print("Here is the failed message: " + str(message))
 
-#run with sudo python3 main.py --led-rows=32 --led-cols=32 --led-chain=6 --led-slowdown-gpio=4 --led-pixel-mapper "Rotate:180"
+
+async def producer_handler(websocket,state):
+    while True:
+        # do we need to brodcast anything all the time to everyone? 
+        await asyncio.sleep(10)
+
+
+
+
+def createHandler(state):
+    async def handler(websocket, path) -> None:
+        #read in global value state 
+        state = getState()
+        #await SE.sendPacketToWSClient(websocket,"updateFields",state) #send a packet here to do it one time on client connect
+        register(websocket)
+        # make the handlers
+        consumer_task = asyncio.ensure_future(consumer_handler(websocket,state))
+        producer_task = asyncio.ensure_future(producer_handler(websocket,state))
+        done, pending = await asyncio.wait(
+            [consumer_task, producer_task], return_when=asyncio.FIRST_COMPLETED,
+        )
+        for task in pending:
+            task.cancel()
+    return handler
+
+
+
+import pyaudio
+
+FORMAT = pyaudio.paInt16
+RATE = 44100
+CHANNELS = 1
+
+def initMicrophone():
+    device_index = find_input_device()
+    print(device_index)
+    stream = pa.open( format = FORMAT,
+                  channels = 2,
+                  rate = RATE,
+                  input = True,
+                  input_device_index = device_index,
+                  frames_per_buffer = INPUT_FRAMES_PER_BLOCK)
+
+async def processAudioSignal(state):
+    pa = pyaudio.PyAudio()
+    initMicrophone()
+
+async def eventLoop(state):
+    await gather(
+        handleLedMatrix(state),
+        websockets.serve(createHandler(state), "0.0.0.0", 1997),
+        processAudioSignal(state),
+    )
+
+#execute the asyncio loop
+run(eventLoop(state))
