@@ -1,0 +1,14 @@
+[Unit]
+Description=device_home for car
+After=network.target
+
+[Service]
+User=pi
+Restart=no
+Type=simple
+# Required for pipenv
+WorkingDirectory=/home/pi/home_commander/HC_programs/device_home_car
+ExecStart=/usr/bin/python3 device_home_car.py
+
+[Install]
+WantedBy=multi-user.target

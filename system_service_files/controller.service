@@ -1,0 +1,14 @@
+[Unit]
+Description=device_home for car
+After=network.target
+
+[Service]
+User=root
+Restart=no
+Type=simple
+# Required for pipenv
+WorkingDirectory=/home/pi/partyBoxV2
+ExecStart=/usr/bin/python3 main.py
+
+[Install]
+WantedBy=multi-user.target

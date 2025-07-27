@@ -1,0 +1,14 @@
+[Unit]
+Description=fft microservice
+After=network.target
+
+[Service]
+User=root
+Restart=no
+Type=simple
+# Required for pipenv
+WorkingDirectory=/home/pi/partyBoxV2
+ExecStart=/usr/bin/python3 uS_FFT.py
+
+[Install]
+WantedBy=multi-user.target

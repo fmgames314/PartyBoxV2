@@ -1,0 +1,275 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Party Box Control</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="style.css" />
+  <script src="jquery.min.js"></script>
+</head>
+<body>
+  <h1>Party Box Control</h1>
+
+  <div class="cardDiv" id="app">
+    <!-- Connection -->
+    <div class="innerCard">
+      <h3>Connection</h3>
+      <div>WebSocket: <span id="ws-status">disconnected</span></div>
+    </div>
+
+    <!-- MiniDSP -->
+    <div class="innerCard">
+      <h3>MiniDSP</h3>
+      <div>Preset: <span id="dsp-preset">-</span></div>
+      <div>Source: <span id="dsp-source">-</span></div>
+      <div>Mute: <span id="dsp-mute">-</span></div>
+      <div>
+        Volume:
+        <input id="dsp-volume" type="range" min="0" max="100" value="0"/>
+        <span id="dsp-volume-val">0</span>
+      </div>
+      <div>Input dB: <span id="dsp-in">-</span></div>
+      <div>Output dB: <span id="dsp-out">-</span></div>
+      <div style="margin-top:6px;">
+        Source:
+        <button onclick="set_dsp_source('USB')">USB</button>
+        <button onclick="set_dsp_source('TOSLINK')">TOSLINK</button>
+        <button onclick="set_dsp_source('Analog')">Analog</button>
+      </div>
+    </div>
+
+    <!-- Under LEDs -->
+    <div class="innerCard">
+      <h3>Under LEDs</h3>
+      <div>
+        Color:
+        <input type="color" id="under-color" value="#ffffff" />
+      </div>
+      <div>
+        Fade:
+        <input type="checkbox" id="under-fade" />
+      </div>
+    </div>
+
+    <!-- Spectrum + Live Preview -->
+    <div class="innerCard">
+      <h3>Spectrum Preview</h3>
+      <canvas id="fftCanvas" width="256" height="64" style="border:1px solid #444;"></canvas>
+    </div>
+
+    <div class="innerCard">
+      <h3>Live Matrix Preview</h3>
+      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+        <canvas id="matrixPreview" width="192" height="32" style="border:1px solid #444; image-rendering: pixelated; width: 768px; height: 128px;"></canvas>
+        <label style="display:flex; align-items:center; gap:6px;">
+          <input type="checkbox" id="preview-rotate" checked/> Rotate 180° (match hardware)
+        </label>
+      </div>
+      <small>The preview shows all 6 chained 32×32 panels (192×32) pixel-for-pixel.</small>
+    </div>
+
+    <!-- Panels -->
+    <div class="innerCard">
+      <h3>Left Panel</h3>
+      <ul data-panel="LEFT" class="panel-controls">
+        <li><label><input type="checkbox" data-opt="option_blackBackground"> Black BG</label></li>
+
+        <li><label><input type="checkbox" data-opt="option_clock"> Clock</label></li>
+
+        <li><label><input type="checkbox" data-opt="option_emotexti"> Emoji/Text Image</label></li>
+        <li><label>EmoText: <input type="text" data-field="emotexti_text" placeholder="e.g. 🎉"></label></li>
+        <li>
+          <label>Emoji Font Size <input type="number" min="5" max="32" step="1" data-field="emotexti_fontSize"></label>
+          <label>Back <input type="color" data-field="emotexti_backColor" value="#000000"></label>
+          <label>Text <input type="color" data-field="emotexti_textColor" value="#ffffff"></label>
+        </li>
+
+        <li><label><input type="checkbox" data-opt="option_regularText"> Regular Text</label></li>
+        <li><label>Text: <input type="text" data-field="regularText_text" placeholder="Hello"></label></li>
+        <li>
+          <label>Scroll <input type="checkbox" data-field="regularText_scroll"></label>
+          <label>Speed <input type="number" step="0.1" min="0" max="3" data-field="regularText_scrollSpeed"></label>
+          <label>Font Size <input type="number" min="0" max="2" step="1" data-field="regularText_fontSize"></label>
+          <label>Text Color <input type="color" data-field="regularText_color" value="#ffffff"></label>
+        </li>
+
+        <li><label><input type="checkbox" data-opt="option_fft"> FFT Bars</label></li>
+        <li><label><input type="checkbox" data-opt="option_fftCircles"> FFT Circles</label></li>
+        <li>
+          FFT Color 1 <input type="color" data-color="fft_color1" value="#0000ff"/>
+          FFT Color 2 <input type="color" data-color="fft_color2" value="#ff2832"/>
+        </li>
+      </ul>
+    </div>
+
+    <div class="innerCard">
+      <h3>Center Panel</h3>
+      <ul data-panel="CENTER" class="panel-controls">
+        <li><label><input type="checkbox" data-opt="option_blackBackground"> Black BG</label></li>
+
+        <li><label><input type="checkbox" data-opt="option_clock"> Clock</label></li>
+
+        <li><label><input type="checkbox" data-opt="option_emotexti"> Emoji/Text Image</label></li>
+        <li><label>EmoText: <input type="text" data-field="emotexti_text" placeholder="💣"></label></li>
+        <li>
+          <label>Emoji Font Size <input type="number" min="5" max="32" step="1" data-field="emotexti_fontSize"></label>
+          <label>Back <input type="color" data-field="emotexti_backColor" value="#000000"></label>
+          <label>Text <input type="color" data-field="emotexti_textColor" value="#ffffff"></label>
+        </li>
+
+        <li><label><input type="checkbox" data-opt="option_regularText"> Regular Text</label></li>
+        <li><label>Text: <input type="text" data-field="regularText_text" placeholder="Party Box!"></label></li>
+        <li>
+          <label>Scroll <input type="checkbox" data-field="regularText_scroll"></label>
+          <label>Speed <input type="number" step="0.1" min="0" max="3" data-field="regularText_scrollSpeed"></label>
+          <label>Font Size <input type="number" min="0" max="2" step="1" data-field="regularText_fontSize"></label>
+          <label>Text Color <input type="color" data-field="regularText_color" value="#ffffff"></label>
+        </li>
+
+        <li><label><input type="checkbox" data-opt="option_fft"> FFT Bars</label></li>
+        <li><label><input type="checkbox" data-opt="option_fftCircles"> FFT Circles</label></li>
+        <li>
+          FFT Color 1 <input type="color" data-color="fft_color1" value="#0000ff"/>
+          FFT Color 2 <input type="color" data-color="fft_color2" value="#ff2832"/>
+        </li>
+      </ul>
+    </div>
+
+    <div class="innerCard">
+      <h3>Right Panel</h3>
+      <ul data-panel="RIGHT" class="panel-controls">
+        <li><label><input type="checkbox" data-opt="option_blackBackground"> Black BG</label></li>
+
+        <li><label><input type="checkbox" data-opt="option_clock"> Clock</label></li>
+
+        <li><label><input type="checkbox" data-opt="option_emotexti"> Emoji/Text Image</label></li>
+        <li><label>EmoText: <input type="text" data-field="emotexti_text" placeholder="📦"></label></li>
+        <li>
+          <label>Emoji Font Size <input type="number" min="5" max="32" step="1" data-field="emotexti_fontSize"></label>
+          <label>Back <input type="color" data-field="emotexti_backColor" value="#000000"></label>
+          <label>Text <input type="color" data-field="emotexti_textColor" value="#ffffff"></label>
+        </li>
+
+        <li><label><input type="checkbox" data-opt="option_regularText"> Regular Text</label></li>
+        <li><label>Text: <input type="text" data-field="regularText_text"></label></li>
+        <li>
+          <label>Scroll <input type="checkbox" data-field="regularText_scroll"></label>
+          <label>Speed <input type="number" step="0.1" min="0" max="3" data-field="regularText_scrollSpeed"></label>
+          <label>Font Size <input type="number" min="0" max="2" step="1" data-field="regularText_fontSize"></label>
+          <label>Text Color <input type="color" data-field="regularText_color" value="#ffffff"></label>
+        </li>
+
+        <li><label><input type="checkbox" data-opt="option_fft"> FFT Bars</label></li>
+        <li><label><input type="checkbox" data-opt="option_fftCircles"> FFT Circles</label></li>
+        <li>
+          FFT Color 1 <input type="color" data-color="fft_color1" value="#0000ff"/>
+          FFT Color 2 <input type="color" data-color="fft_color2" value="#ff2832"/>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Rear Lights (LED remotes) -->
+    <div class="cardDiv">
+      <h2>Rear Lights</h2>
+
+      <div class="innerCard">
+        <img src="ledRemote.jpg" alt="ledRemote" usemap="#workmap0" width="303" height="404">
+        <map name="workmap0">
+          <!-- 24 buttons -->
+          <area shape="circle" coords="39,46,60" onclick="setSpotlight(0,0)" >
+          <area shape="circle" coords="114,46,60" onclick="setSpotlight(0,1)" >
+          <area shape="circle" coords="187,46,60" onclick="setSpotlight(0,2)" >
+          <area shape="circle" coords="260,46,60" onclick="setSpotlight(0,3)" >
+          <area shape="circle" coords="39,110,60" onclick="setSpotlight(0,4)" >
+          <area shape="circle" coords="114,110,60" onclick="setSpotlight(0,5)" >
+          <area shape="circle" coords="187,110,60" onclick="setSpotlight(0,6)" >
+          <area shape="circle" coords="260,110,60" onclick="setSpotlight(0,7)" >
+          <area shape="circle" coords="39,177,60" onclick="setSpotlight(0,8)" >
+          <area shape="circle" coords="114,177,60" onclick="setSpotlight(0,9)" >
+          <area shape="circle" coords="187,177,60" onclick="setSpotlight(0,10)" >
+          <area shape="circle" coords="260,177,60" onclick="setSpotlight(0,11)" >
+          <area shape="circle" coords="39,246,60" onclick="setSpotlight(0,12)" >
+          <area shape="circle" coords="114,246,60" onclick="setSpotlight(0,13)" >
+          <area shape="circle" coords="187,246,60" onclick="setSpotlight(0,14)" >
+          <area shape="circle" coords="260,246,60" onclick="setSpotlight(0,15)" >
+          <area shape="circle" coords="39,312,60" onclick="setSpotlight(0,16)" >
+          <area shape="circle" coords="114,312,60" onclick="setSpotlight(0,17)" >
+          <area shape="circle" coords="187,312,60" onclick="setSpotlight(0,18)" >
+          <area shape="circle" coords="260,312,60" onclick="setSpotlight(0,19)" >
+          <area shape="circle" coords="39,374,60" onclick="setSpotlight(0,20)" >
+          <area shape="circle" coords="114,374,60" onclick="setSpotlight(0,21)" >
+          <area shape="circle" coords="187,374,60" onclick="setSpotlight(0,22)" >
+          <area shape="circle" coords="260,374,60" onclick="setSpotlight(0,23)" >
+        </map>
+      </div>
+
+      <div class="innerCard">
+        <img src="ledRemote.jpg" alt="ledRemote" usemap="#workmap1" width="303" height="404">
+        <map name="workmap1">
+          <!-- 24 buttons -->
+          <!-- rows same as above with group=1 -->
+          <area shape="circle" coords="39,46,60"  onclick="setSpotlight(1,0)">
+          <area shape="circle" coords="114,46,60" onclick="setSpotlight(1,1)">
+          <area shape="circle" coords="187,46,60" onclick="setSpotlight(1,2)">
+          <area shape="circle" coords="260,46,60" onclick="setSpotlight(1,3)">
+          <area shape="circle" coords="39,110,60" onclick="setSpotlight(1,4)">
+          <area shape="circle" coords="114,110,60" onclick="setSpotlight(1,5)">
+          <area shape="circle" coords="187,110,60" onclick="setSpotlight(1,6)">
+          <area shape="circle" coords="260,110,60" onclick="setSpotlight(1,7)">
+          <area shape="circle" coords="39,177,60" onclick="setSpotlight(1,8)">
+          <area shape="circle" coords="114,177,60" onclick="setSpotlight(1,9)">
+          <area shape="circle" coords="187,177,60" onclick="setSpotlight(1,10)">
+          <area shape="circle" coords="260,177,60" onclick="setSpotlight(1,11)">
+          <area shape="circle" coords="39,246,60" onclick="setSpotlight(1,12)">
+          <area shape="circle" coords="114,246,60" onclick="setSpotlight(1,13)">
+          <area shape="circle" coords="187,246,60" onclick="setSpotlight(1,14)">
+          <area shape="circle" coords="260,246,60" onclick="setSpotlight(1,15)">
+          <area shape="circle" coords="39,312,60" onclick="setSpotlight(1,16)">
+          <area shape="circle" coords="114,312,60" onclick="setSpotlight(1,17)">
+          <area shape="circle" coords="187,312,60" onclick="setSpotlight(1,18)">
+          <area shape="circle" coords="260,312,60" onclick="setSpotlight(1,19)">
+          <area shape="circle" coords="39,374,60" onclick="setSpotlight(1,20)">
+          <area shape="circle" coords="114,374,60" onclick="setSpotlight(1,21)">
+          <area shape="circle" coords="187,374,60" onclick="setSpotlight(1,22)">
+          <area shape="circle" coords="260,374,60" onclick="setSpotlight(1,23)">
+        </map>
+      </div>
+
+      <div class="innerCard">
+        <img src="ledRemote.jpg" alt="ledRemote" usemap="#workmap2" width="303" height="404">
+        <map name="workmap2">
+          <!-- 24 buttons -->
+          <!-- rows same as above with group=2 -->
+          <area shape="circle" coords="39,46,60"  onclick="setSpotlight(2,0)">
+          <area shape="circle" coords="114,46,60" onclick="setSpotlight(2,1)">
+          <area shape="circle" coords="187,46,60" onclick="setSpotlight(2,2)">
+          <area shape="circle" coords="260,46,60" onclick="setSpotlight(2,3)">
+          <area shape="circle" coords="39,110,60" onclick="setSpotlight(2,4)">
+          <area shape="circle" coords="114,110,60" onclick="setSpotlight(2,5)">
+          <area shape="circle" coords="187,110,60" onclick="setSpotlight(2,6)">
+          <area shape="circle" coords="260,110,60" onclick="setSpotlight(2,7)">
+          <area shape="circle" coords="39,177,60" onclick="setSpotlight(2,8)">
+          <area shape="circle" coords="114,177,60" onclick="setSpotlight(2,9)">
+          <area shape="circle" coords="187,177,60" onclick="setSpotlight(2,10)">
+          <area shape="circle" coords="260,177,60" onclick="setSpotlight(2,11)">
+          <area shape="circle" coords="39,246,60" onclick="setSpotlight(2,12)">
+          <area shape="circle" coords="114,246,60" onclick="setSpotlight(2,13)">
+          <area shape="circle" coords="187,246,60" onclick="setSpotlight(2,14)">
+          <area shape="circle" coords="260,246,60" onclick="setSpotlight(2,15)">
+          <area shape="circle" coords="39,312,60" onclick="setSpotlight(2,16)">
+          <area shape="circle" coords="114,312,60" onclick="setSpotlight(2,17)">
+          <area shape="circle" coords="187,312,60" onclick="setSpotlight(2,18)">
+          <area shape="circle" coords="260,312,60" onclick="setSpotlight(2,19)">
+          <area shape="circle" coords="39,374,60" onclick="setSpotlight(2,20)">
+          <area shape="circle" coords="114,374,60" onclick="setSpotlight(2,21)">
+          <area shape="circle" coords="187,374,60" onclick="setSpotlight(2,22)">
+          <area shape="circle" coords="260,374,60" onclick="setSpotlight(2,23)">
+        </map>
+      </div>
+    </div>
+  </div>
+
+  <!-- App JS -->
+  <script src="websocket_client.js"></script>
+</body>
+</html>

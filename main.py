@@ -6,14 +6,16 @@
 # 
 
 #rgb matrix library
-from samplebase import SampleBase
 from rgbmatrix import graphics, RGBMatrix, RGBMatrixOptions
 #async
 import websockets
 import asyncio
 from asyncio import gather, run, Event
 import subprocess
+import base64
+from PIL import Image
 import socket
+import aiohttp
 #generic
 import json
 import sys
@@ -23,6 +25,7 @@ import time
 #import other files in same directory
 import socketEvents as SE
 import panelEffects as PE
+import dspApi as DSP
 
 # Configuration for the matrix
 options = RGBMatrixOptions()
@@ -35,11 +38,21 @@ options.gpio_slowdown = 4
 state = {}
 state["SE"] = SE   
 state["PE"] = PE  
-#user changable options
+state["DSP"] = DSP  
+#system variables
+state["listOfWebsocks"] = []
+#rgb panel variables
 state["panelCenter"] = state["PE"].panelOption(32,128)
 state["panelLeft"] = state["PE"].panelOption(0,32)
 state["panelRight"] = state["PE"].panelOption(160,32)
-
+state["fftData"] = []
+#dsp settings
+state["DSP_preset"] = -1
+state["DSP_source"] = "Unknown"
+state["DSP_volume"] = 1
+state["DSP_mute"] = "Unknown"
+state["DSP_db_input"] = [-200,-200]
+state["DSP_db_output"] = [-200,-200,-200,-200] 
 #make the matrix obj
 state["matrix"] = RGBMatrix(options = options)
 
@@ -49,38 +62,104 @@ state["matrix"] = RGBMatrix(options = options)
 state["panelCenter"].option_blackBackground = 1
 state["panelCenter"].option_regularText = 1
 state["panelCenter"].regularText_setFont(2) #0,1,2
-state["panelCenter"].regularText_setColor(30,255,255)
+state["panelCenter"].regularText_setColor(120,120,120)
 state["panelCenter"].regularText_setScroll(1)
-state["panelCenter"].regularText_setScrollSpeed(.5)
-state["panelCenter"].regularText_setText("Test")
+state["panelCenter"].regularText_setScrollSpeed(.7)
+state["panelCenter"].regularText_setText("Party Box!")
+
+state["panelCenter"].option_fft = 1
+state["panelCenter"].option_fftCircles = 1
+state["panelCenter"].emotexti_setText("💣")
+
+state["panelLeft"].option_fft = 0
+state["panelRight"].option_fft = 0
 
 state["panelLeft"].option_blackBackground = 1
 state["panelLeft"].option_emotexti = 1
-state["panelLeft"].emotexti_setText("🎄")
+state["panelLeft"].emotexti_setText("🎉")
 
 state["panelRight"].option_blackBackground = 1
 state["panelRight"].option_emotexti = 1
-state["panelRight"].emotexti_setText("🎃")
+state["panelRight"].emotexti_setText("📦")
 
 
-state["panelRight"].option_regularText = 1
-state["panelRight"].regularText_setScroll(0)
-state["panelRight"].regularText_setText("potato")
+# state["panelRight"].option_regularText = 1
+# state["panelRight"].regularText_setScroll(0)
+# state["panelRight"].regularText_setText("potato")
 
             
 
+
 async def handleLedMatrix(state):
+    # Build and broadcast a PIL framebuffer each frame for exact parity (60 fps target)
     double_buffer = state["matrix"].CreateFrameCanvas()
     while True:
-        double_buffer.Clear()
-        state["panelCenter"].draw(double_buffer)
-        state["panelLeft"].draw(double_buffer)
-        state["panelRight"].draw(double_buffer)
-        await asyncio.sleep(0.01) #this defines the refresh rate of the panels
-        double_buffer = state["matrix"].SwapOnVSync(double_buffer)
-        # state["matrix"].Clear()
+        try:
+            # Compose in PIL first
+            fb_img = Image.new("RGB", (192, 32), (0,0,0))
+
+            # Draw panels into the image
+            try:
+                state["panelCenter"].draw_to_image(fb_img, state)
+                state["panelLeft"].draw_to_image(fb_img, state)
+                state["panelRight"].draw_to_image(fb_img, state)
+            except Exception as e:
+                # in case the new method isn't present, fall back to legacy drawing
+                double_buffer.Clear()
+                state["panelCenter"].draw(double_buffer,state)
+                state["panelLeft"].draw(double_buffer,state)
+                state["panelRight"].draw(double_buffer,state)
+
+            # Push the composed image to the LED matrix
+            try:
+                double_buffer.SetImage(fb_img, 0, 0)
+            except Exception:
+                # Some builds require SetImage(image) without offsets; try that
+                try:
+                    double_buffer.SetImage(fb_img)
+                except Exception:
+                    pass
+
+            # Broadcast framebuffer to any connected UIs (RGB888 base64)
+            try:
+                raw = fb_img.tobytes()
+                b64 = base64.b64encode(raw).decode("ascii")
+                await SE.sendToAllWebsocks(state, "framebuffer", {"w": 192, "h": 32, "data": b64})
+            except Exception as e:
+                # non-fatal
+                pass
+
+            # Swap to hardware and sleep ~1/60s
+            double_buffer = state["matrix"].SwapOnVSync(double_buffer)
+            await asyncio.sleep(1/60.0)
+        except Exception as e:
+            # keep running
+            await asyncio.sleep(1/60.0)
 
 
+
+
+
+async def postLoop(state):
+    while True:
+        try:
+            async with aiohttp.ClientSession() as session:
+                miniDspUrl = 'http://127.0.0.1:5380/devices/0'
+                async with session.get(miniDspUrl) as resp:
+                    dspData = await resp.json()
+                    state["DSP_preset"] = dspData["master"]["preset"]
+                    state["DSP_source"] = dspData["master"]["source"]
+                    state["DSP_volume"] = dspData["master"]["volume"]
+                    state["DSP_mute"] = dspData["master"]["mute"]
+                    state["DSP_db_input"] = dspData["input_levels"]
+                    state["DSP_db_output"] = dspData["output_levels"]
+                    # print(state["DSP_preset"],state["DSP_source"],state["DSP_volume"],state["DSP_mute"],state["DSP_db_input"],state["DSP_db_output"])
+            await asyncio.sleep(.25)
+        except:
+            print("Failed to connect to MiniDSP Service")
+            await asyncio.sleep(5)
+        
+    
 
 async def consumer_handler(websocket,state):
     async for message in websocket:
@@ -106,10 +185,8 @@ async def producer_handler(websocket,state):
 
 def createHandler(state):
     async def handler(websocket, path) -> None:
-        #read in global value state 
-        state = getState()
-        #await SE.sendPacketToWSClient(websocket,"updateFields",state) #send a packet here to do it one time on client connect
-        register(websocket)
+        print("Client Connected")
+        state["listOfWebsocks"].append(websocket)
         # make the handlers
         consumer_task = asyncio.ensure_future(consumer_handler(websocket,state))
         producer_task = asyncio.ensure_future(producer_handler(websocket,state))
@@ -118,35 +195,18 @@ def createHandler(state):
         )
         for task in pending:
             task.cancel()
+        print("Disconnected")
+        state["listOfWebsocks"].remove(websocket)
     return handler
 
 
 
-import pyaudio
-
-FORMAT = pyaudio.paInt16
-RATE = 44100
-CHANNELS = 1
-
-def initMicrophone():
-    device_index = find_input_device()
-    print(device_index)
-    stream = pa.open( format = FORMAT,
-                  channels = 2,
-                  rate = RATE,
-                  input = True,
-                  input_device_index = device_index,
-                  frames_per_buffer = INPUT_FRAMES_PER_BLOCK)
-
-async def processAudioSignal(state):
-    pa = pyaudio.PyAudio()
-    initMicrophone()
 
 async def eventLoop(state):
     await gather(
         handleLedMatrix(state),
+        postLoop(state),
         websockets.serve(createHandler(state), "0.0.0.0", 1997),
-        processAudioSignal(state),
     )
 
 #execute the asyncio loop

@@ -1,0 +1,14 @@
+[Unit]
+Description=genwebserver
+After=network.target
+
+[Service]
+User=root
+Restart=no
+Type=simple
+# Required for pipenv
+WorkingDirectory=/home/pi/partyBoxV2/webInterface
+ExecStart=/bin/bash pythonWebserver.sh
+
+[Install]
+WantedBy=multi-user.target
