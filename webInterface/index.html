@@ -52,17 +52,32 @@
     </div>
 
     <!-- Spectrum + Live Preview -->
-    <div class="innerCard">
-      <h3>Spectrum Preview</h3>
-      <canvas id="fftCanvas" width="256" height="64" style="border:1px solid #444;"></canvas>
-    </div>
+<div class="innerCard">
+  <h3>Color Themes</h3>
+  <button onclick="preset(1)">Slime Green</button>
+  <button onclick="preset(2)">Christmas</button>
+  <button onclick="preset(3)">Fall</button>
+  <button onclick="preset(4)">Fire</button>
+  <button onclick="preset(5)">4th of July</button>
+  <button onclick="preset(6)">Purple</button>
+  <button onclick="preset(7)">Pure White</button>
+  <button onclick="preset(8)">Florida</button>
+  <button onclick="preset(9)">Happy Birthday</button>
+  <button onclick="preset(10)">Halloween</button>
+  <button onclick="preset(11)">Thanksgiving</button>
+  <button onclick="preset(12)">Space</button>
+  <button onclick="preset(13)">Flower</button>
+  <button onclick="preset(14)">Lo‑Fi Night</button>
+  <button onclick="preset(15)">Ocean</button>
+  <button onclick="preset(16)">Ice Blues</button>
+</div>
 
     <div class="innerCard">
       <h3>Live Matrix Preview</h3>
       <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
         <canvas id="matrixPreview" width="192" height="32" style="border:1px solid #444; image-rendering: pixelated; width: 768px; height: 128px;"></canvas>
         <label style="display:flex; align-items:center; gap:6px;">
-          <input type="checkbox" id="preview-rotate" checked/> Rotate 180° (match hardware)
+          <input type="checkbox" id="preview-rotate"/> Rotate 180° (match hardware)
         </label>
       </div>
       <small>The preview shows all 6 chained 32×32 panels (192×32) pixel-for-pixel.</small>

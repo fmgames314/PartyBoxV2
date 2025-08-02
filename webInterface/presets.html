@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Party Box Presets</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { --bg:#0b0b0c; --fg:#eaeaea; --muted:#9aa0a6; --btn:#1f2937; --btn-h:#374151; }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: var(--bg);
+      color: var(--fg);
+    }
+    .wrap {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    h1 {
+      font-size: clamp(20px, 4vw, 28px);
+      margin: 0;
+      letter-spacing: 0.2px;
+    }
+    .home-link {
+      display: inline-block;
+      text-decoration: none;
+      background: var(--btn);
+      color: var(--fg);
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 14px;
+      transition: background 0.15s ease;
+      white-space: nowrap;
+    }
+    .home-link:hover { background: var(--btn-h); }
+    .status {
+      font-size: 14px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+    }
+    button.preset {
+      appearance: none;
+      -webkit-appearance: none;
+      border: 0;
+      border-radius: 12px;
+      padding: 22px 18px;
+      font-size: clamp(18px, 3.5vw, 26px);
+      font-weight: 600;
+      width: 100%;
+      background: var(--btn);
+      color: var(--fg);
+      cursor: pointer;
+      outline: none;
+      transition: transform 0.02s ease-in-out, background 0.15s ease;
+    }
+    button.preset:hover { background: var(--btn-h); }
+    button.preset:active { transform: translateY(1px); }
+    footer { margin-top: 18px; font-size: 12px; color: var(--muted); }
+    .sr-only { position: absolute; left: -10000px; top: auto; width: 1px; height: 1px; overflow: hidden; }
+  </style>
+</head>
+<body>
+  <div class="wrap" id="app">
+    <header>
+      <h1>Presets</h1>
+      <a class="home-link" href="http://192.168.1.199/" target="_top" rel="noopener noreferrer" title="Open the full index page">Open Full Controls</a>
+      <div class="status">WebSocket: <span id="ws-status">disconnected</span></div>
+    </header>
+
+    <div class="grid" role="group" aria-label="Color theme presets">
+      <button class="preset" onclick="preset(1)">Slime Green</button>
+      <button class="preset" onclick="preset(2)">Christmas</button>
+      <button class="preset" onclick="preset(3)">Fall</button>
+      <button class="preset" onclick="preset(4)">Fire</button>
+      <button class="preset" onclick="preset(5)">4th of July</button>
+      <button class="preset" onclick="preset(6)">Purple</button>
+      <button class="preset" onclick="preset(7)">Pure White</button>
+      <button class="preset" onclick="preset(8)">Florida</button>
+      <button class="preset" onclick="preset(9)">Happy Birthday</button>
+      <button class="preset" onclick="preset(10)">Halloween</button>
+      <button class="preset" onclick="preset(11)">Thanksgiving</button>
+      <button class="preset" onclick="preset(12)">Space</button>
+      <button class="preset" onclick="preset(13)">Flower</button>
+      <button class="preset" onclick="preset(14)">Lo‑Fi Night</button>
+      <button class="preset" onclick="preset(15)">Ocean</button>
+      <button class="preset" onclick="preset(16)">Ice Blues</button>
+    </div>
+
+    <footer>
+      <span class="sr-only" id="preset-missing">The preset() function is not available. Make sure websocket_client.js is loaded.</span>
+    </footer>
+  </div>
+
+  <!-- Keep these includes so we can call the existing preset() function -->
+  <script src="jquery.min.js"></script>
+  <script src="websocket_client.js"></script>
+  <script>
+    // Small guard: if preset() is missing, surface an accessible notice for troubleshooting.
+    window.addEventListener('load', () => {
+      if (typeof window.preset !== 'function') {
+        const warn = document.getElementById('preset-missing');
+        if (warn) { warn.classList.remove('sr-only'); }
+        console.warn('preset() is not defined. Check that websocket_client.js is reachable from this page.');
+      }
+    });
+  </script>
+</body>
+</html>

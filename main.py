@@ -41,6 +41,7 @@ state["PE"] = PE
 state["DSP"] = DSP  
 #system variables
 state["listOfWebsocks"] = []
+state["listOfBrowersClients"] = []
 #rgb panel variables
 state["panelCenter"] = state["PE"].panelOption(32,128)
 state["panelLeft"] = state["PE"].panelOption(0,32)
@@ -124,7 +125,7 @@ async def handleLedMatrix(state):
             try:
                 raw = fb_img.tobytes()
                 b64 = base64.b64encode(raw).decode("ascii")
-                await SE.sendToAllWebsocks(state, "framebuffer", {"w": 192, "h": 32, "data": b64})
+                await SE.sendToAllBrowsersGuis(state, "framebuffer", {"w": 192, "h": 32, "data": b64})
             except Exception as e:
                 # non-fatal
                 pass

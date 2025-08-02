@@ -2,6 +2,7 @@
 import json
 import time
 from PIL import ImageColor
+import stylePresets as PRESETS
 
 # Utility ------------------------------------------------------------------
 def _get_panel_from_name(state, name):
@@ -36,12 +37,29 @@ async def sendToAllWebsocks(state, eventName, inputDict):
     dead = []
     for ws in lst:
         try:
+            print(eventName,inputDict)
             await sendPacketToWSClient(ws, eventName, inputDict)
         except Exception:
             dead.append(ws)
     for ws in dead:
         try:
             state["listOfWebsocks"].remove(ws)
+        except Exception:
+            pass
+
+async def sendToAllBrowsersGuis(state,eventName,inputDict):
+    # optional broadcast helper (only works if main.py tracks listOfWebsocks)
+    lst = list(state.get("listOfBrowersClients", []))
+    dead = []
+    for ws in lst:
+        try:
+            # print(eventName,inputDict)
+            await sendPacketToWSClient(ws, eventName, inputDict)
+        except Exception:
+            dead.append(ws)
+    for ws in dead:
+        try:
+            state["listOfBrowersClients"].remove(ws)
         except Exception:
             pass
 
@@ -76,6 +94,8 @@ async def _send_all_panel_state(websocket, state):
         "CENTER": _panel_to_dict(state["panelCenter"]),
         "RIGHT":  _panel_to_dict(state["panelRight"]),
     }
+    if websocket not in state["listOfBrowersClients"]:
+        state["listOfBrowersClients"].append(websocket)
     await sendPacketToWSClient(websocket, "give_panel_state", out)
 
 # Event processor -----------------------------------------------------------
@@ -216,6 +236,7 @@ async def process_websocket_event(websocket, packet, eventName, state):
         panel = _get_panel_from_name(state, packet.get("panel"))
         if panel is not None:
             panel.fft_color1 = _hex_to_rgb(packet.get("color"))
+        print("sendcolor")
         await _send_all_panel_state(websocket, state)
         return
 
@@ -249,6 +270,11 @@ async def process_websocket_event(websocket, packet, eventName, state):
         output_dict["spotLightNum"] = spotNum
         output_dict["spotLightButton"] = spotButton
         await sendToAllWebsocks(state,"control_spotlight",output_dict)
+
+    if eventName == "preset":
+        presetNum = int(packet.get("presetNum", 0))
+        await PRESETS.doPreset(state,presetNum)
+        
 
     # Unknown event
     # print("Unknown event:", eventName)

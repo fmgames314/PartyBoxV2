@@ -48,6 +48,10 @@
   window.set_dsp_source = function(src){
     wsSend({event:"set_dsp_source", source: String(src||"")});
   };
+  window.preset = function(src){
+    wsSend({event:"preset", presetNum: String(src||"")});
+  };
+  
   window.setSpotlight = function(group, index){
     wsSend({event:"set_spotlight", group: Number(group)||0, index: Number(index)||0});
   };
